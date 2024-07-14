@@ -101,7 +101,7 @@ func processDirectory(dir string) {
         fmt.Printf("Pushing to branch %s\n", config["branch"])
         runBashInDir(
             dir, 
-            fmt.Sprintf("git stash push; git branch -d %s", config["branch"]),
+            fmt.Sprintf("git stash push; git branch -D %s", config["branch"]),
         )
         _, stderr, err := runBashInDir(
             dir, 
@@ -118,11 +118,7 @@ func processDirectory(dir string) {
         )
         runBashInDir(
             dir,
-            fmt.Sprintf(
-                "git checkout %s; "+
-                "git stash pop    ",
-                cur_git_branch,
-            ),
+            fmt.Sprintf("git checkout %s; git stash pop", cur_git_branch),
         )
         if argument_options.verbose || err != nil {
             println(string(stderr))
@@ -155,7 +151,7 @@ func runBashInDir(dir string, cmd string) ([]byte, []byte, error) {
 func getPushCommand(config *map[string]any) string {
     if (*config)["autopush"].(bool) {
         println("Autopush enabled!")
-        return fmt.Sprintf("git push %s %s", (*config)["remote"], (*config)["branch"])
+        return fmt.Sprintf("git push -u -f %s %s", (*config)["remote"], (*config)["branch"])
     } else {
         return ":"
     }
@@ -186,7 +182,7 @@ func getDefaultGitfsConfig() map[string]any {
         "autopush": false, // should gitfs automatically push if an origin is specified
         "commit-message": argument_options.commit_message, // the commit message
         "remote": "origin", // which remote to push to (ie. `git push ????`)
-        "branch": "main", // which branch should be committed to
+        "branch": "wip", // which branch should be committed to
     }
 }
 
@@ -198,7 +194,7 @@ func addGitFsToGitIgnore(dir string) {
         os.WriteFile(gitignore, 
             []byte(".gitfs\n"), 
             0644,
-            )
+        )
     } else if rerr == nil && !strings.Contains(string(contents), ".gitfs\n") { 
         // gitignore does not contain ".gitfs"
         os.WriteFile(gitignore, []byte(".gitfs\n"), os.ModeAppend)
@@ -210,14 +206,14 @@ func addGitFsToGitIgnore(dir string) {
 
 func printHelp() {
     fmt.Printf(
-        `gitfs tracks all projects in a root directories and
-        auto-commits all changes based on a ".gitfs" config file
-
-        Usage: gitfs ROOT_DIR [-d/--depth DEPTH]
-
-        ROOT_DIR - the root directory
-        DEPTH - the depth of the walk (default is 5)
-        `)
+        "gitfs tracks all projects in a root directories and\n"+
+        "auto-commits all changes based on a \".gitfs\" config file\n"+
+        "\n"+
+        "Usage: gitfs ROOT_DIR [-d/--depth DEPTH]\n"+
+        "\n"+
+        "    ROOT_DIR - the root directory\n"+
+        "    DEPTH - the depth of the walk (default is 5)\n",
+    )
 }
 
 func check(err error) {
