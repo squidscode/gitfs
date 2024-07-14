@@ -9,6 +9,8 @@ import (
     "path/filepath"
     "slices"
     "strings"
+    "log"
+    "sync"
 )
 
 type argument_options_t struct {
@@ -18,6 +20,8 @@ type argument_options_t struct {
     verbose bool
     remote string
     branch string
+    autocommit bool
+    autopush bool
 }
 
 // global state for argument options because they should only be set by the driver
@@ -28,6 +32,8 @@ var argument_options argument_options_t = argument_options_t{
     verbose:false,
     remote:"origin",
     branch:"wip",
+    autocommit: false,
+    autopush: false,
 }
 
 /*
@@ -39,8 +45,18 @@ func main() {
         printHelp()
         os.Exit(1);
     }
+    parseCommandLineArguments()
+    _, err := os.ReadDir(os.Args[1])
+    check(err)
+    log.SetFlags(log.Ldate | log.Ltime)
+    var wg sync.WaitGroup
+    scanDir(os.Args[1], argument_options.depth, &wg)
+    wg.Wait()
+}
+
+func parseCommandLineArguments() {
     argument_options.root_dir = os.Args[1]
-    for i := 2; i < len(os.Args); i++ {
+    for i := 1; i < len(os.Args); i++ {
         switch os.Args[i] {
         case "-d", "--depth":
             i++
@@ -58,23 +74,30 @@ func main() {
         case "-r", "--remote":
             i++
             argument_options.remote = os.Args[i]
+        case "--auto-commit", "--autocommit":
+            i++
+            argument_options.autocommit = true
+        case "--auto-push", "--autopush":
+            i++
+            argument_options.autopush = true
+        case "-h", "--help":
+            printHelp()
+            os.Exit(0)
+        default:
+            if i != 1 {
+                printHelp()
+                os.Exit(1)
+            }
         }
     }
-    _, err := os.ReadDir(os.Args[1])
-    check(err)
-
-    scanDir(os.Args[1], 5)
 }
 
-func scanDir(dir string, max_depth int) {
+func scanDir(dir string, max_depth int, wg *sync.WaitGroup) {
     if max_depth == 0 {
         return
     }
-
     c, err := os.ReadDir(dir)
     check(err)
-
-    println("Scanning", dir)
 
     var subdirs []string
     for _, entry := range c {
@@ -84,14 +107,24 @@ func scanDir(dir string, max_depth int) {
     }
 
     if slices.Contains(subdirs, ".git") {
-        println("Found root:", dir)
-        processDirectory(dir)
+        log.Printf("Found git directory at %s\n", dir)
+        wg.Add(1)
+        go func() {
+            defer recoverFromProcessDirectory(dir, wg)
+            processDirectory(dir)
+        }()
     } else {
         for _, s := range subdirs {
-            scanDir(filepath.Join(dir, s), max_depth - 1)
+            scanDir(filepath.Join(dir, s), max_depth - 1, wg)
         }
     }
+}
 
+func recoverFromProcessDirectory(dir string, wg *sync.WaitGroup) {
+    wg.Done()
+    if r := recover(); r != nil {
+        log.Printf("[%s] Recovered from a panic: %s\n", dir, r)
+    }
 }
 
 func processDirectory(dir string) {
@@ -100,48 +133,49 @@ func processDirectory(dir string) {
     if _, err := os.Stat(gitfs); err == nil {
         contents, err := os.ReadFile(gitfs)
         check(err)
+        log.Printf("[%s] `.gitfs` file found!", dir)
         processGitFsFile(dir, contents, &config)
     } else {
-        println("No `.gitfs` file found for", dir)
-        println("Resorting to default configuration")
+        log.Printf("[%s] No `.gitfs` file found\n", dir)
+        log.Printf("[%s] Resorting to default configuration\n", dir)
     }
 
-    git_diff := outputBashInDir(dir, "git diff")
-    if len(git_diff) != 0 && config["autocommit"].(bool) { // stuff to commit found
-        cur_git_branch := strings.TrimSpace(
-            string(outputBashInDir(dir, "git branch --show-current")),
-        )
-        fmt.Printf("Pushing to branch %s\n", config["branch"])
-        _, _, err := runBashInDir(
-            dir, 
-            fmt.Sprintf("git stash push; git branch -D %s", config["branch"]),
-        )
-        check(err)
-        stdout, stderr, err := runBashInDir(
-            dir, 
-            fmt.Sprintf(
-                "set -e;                   "+ // IMPORTANT: exit on first error!
-                "git checkout -b %s;       "+
-                "git stash apply;          "+
-                "git add .;                "+
-                "git commit -m \"%s\";     "+
-                getPushCommand(&config)+"; ",
-                config["branch"],
-                config["commit-message"],
+    if config["autocommit"].(bool) { // stuff to commit found
+        commitGitDiff(dir, config)
+    } else {
+        log.Printf("[%s] Autocommit disabled", dir)
+    }
+}
+
+func commitGitDiff(dir string, config map[string]any) {
+    if len(outputBashInDir(dir, "git diff")) == 0 {
+        log.Printf("[%s] Nothing to commit!", dir)
+    }
+    cur_git_branch := strings.TrimSpace(string(outputBashInDir(dir, "git branch --show-current")))
+    log.Printf("[%s] Pushing to branch %s\n", dir, config["branch"])
+    _, _, err := runBashInDir(dir, fmt.Sprintf("git stash push; git branch -D %s", config["branch"]))
+    check(err)
+    stdout, stderr, err := runBashInDir(
+        dir, 
+        fmt.Sprintf(
+            "set -e;                        "+ // IMPORTANT: exit on first error!
+            "git checkout -b %s;            "+
+            "git stash apply;               "+
+            "git add .;                     "+
+            "git commit -m \"%s\";          "+
+            getPushCommand(dir, &config)+"; ",
+            config["branch"],
+            config["commit-message"],
             ),
         )
-        _, _, err = runBashInDir(
-            dir,
-            fmt.Sprintf("git checkout %s; git stash pop", cur_git_branch),
-        )
-        check(err)
-        if argument_options.verbose {
-            println(string(stdout))
-        }
-        if argument_options.verbose || err != nil {
-            println(string(stderr))
-        }
-    } 
+    _, _, err = runBashInDir(dir, fmt.Sprintf("git checkout %s; git stash pop", cur_git_branch))
+    check(err)
+    if argument_options.verbose {
+        log.Printf("[%s] STDOUT:\n%s\n", dir, string(stdout))
+    }
+    if argument_options.verbose || err != nil {
+        log.Fatalf("[%s] STDERR:\n%s\n", dir, string(stderr))
+    }
 }
 
 func outputBashInDir(dir string, cmd string) []byte {
@@ -166,17 +200,17 @@ func runBashInDir(dir string, cmd string) ([]byte, []byte, error) {
     return out, []byte{}, nil
 }
 
-func getPushCommand(config *map[string]any) string {
+func getPushCommand(dir string, config *map[string]any) string {
     if (*config)["autopush"].(bool) {
-        println("Autopush enabled!")
+        log.Printf("[%s] Autopush enabled!", dir)
         return fmt.Sprintf("git push -u -f %s %s", (*config)["remote"], (*config)["branch"])
     } else {
+        log.Printf("[%s] Autopush disabled!", dir)
         return ":"
     }
 }
 
 func processGitFsFile(dir string, contents []byte, default_config *map[string]any) {
-    println(".gitfs file found!")
     addGitFsToGitIgnore(dir)
     var json_data map[string]interface {}
     err := json.Unmarshal(contents, &json_data)
@@ -187,17 +221,17 @@ func processGitFsFile(dir string, contents []byte, default_config *map[string]an
         }
     }
     for k := range json_data {
-        if _, exists := json_data[k]; !exists {
+        if _, exists := (*default_config)[k]; !exists {
             // log the error
-            println("[ERROR] key", k, "is not a valid `gitfs` configuration!")
+            log.Fatalf("[%s] key \"%s\" is not a valid `gitfs` configuration!", dir, k)
         }
     }
 }
 
 func getDefaultGitfsConfig() map[string]any {
     return map[string]any {
-        "autocommit": false, // should gitfs autocommit any changes
-        "autopush": false, // should gitfs automatically push if an origin is specified
+        "autocommit": argument_options.autocommit, // should gitfs autocommit any changes
+        "autopush": argument_options.autopush, // should gitfs automatically push if an origin is specified
         "commit-message": argument_options.commit_message, // the commit message
         "remote": argument_options.remote, // which remote to push to (ie. `git push ????`)
         "branch": argument_options.branch, // which branch should be committed to
@@ -224,13 +258,18 @@ func addGitFsToGitIgnore(dir string) {
 
 func printHelp() {
     fmt.Printf(
-        "gitfs tracks all projects in a root directories and\n"+
+        "Gitfs tracks all projects in a root directories and\n"+
         "auto-commits all changes based on a \".gitfs\" config file\n"+
         "\n"+
-        "Usage: gitfs ROOT_DIR [-d/--depth DEPTH]\n"+
+        "Usage: gitfs ROOT_DIR [-d/--depth DEPTH] [-m/--message MESSAGE]\n"+
+        "           [-v/--verbose] [-b/--branch BRANCH] [-r/--remote REMOTE]\n"+
+        "           [--auto-commit] [--auto-push] [-h/--help]\n"+
         "\n"+
         "    ROOT_DIR - the root directory\n"+
-        "    DEPTH - the depth of the walk (default is 5)\n",
+        "    DEPTH - the depth of the walk (default: 5)\n"+
+        "    MESSAGE - the commit message\n"+
+        "    BRANCH - the branch to commit to (default: wip)\n"+
+        "    REMOTE - the remote git repo to push to (default: origin)\n",
     )
 }
 
