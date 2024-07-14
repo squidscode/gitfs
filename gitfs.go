@@ -85,7 +85,7 @@ func processDirectory(dir string) {
                 "git stash push; "+
                 "git checkout %s; "+
                 "git stash apply; "+
-                "git add *; "+
+                "git add .; "+
                 "git commit -m \"%s\"; "+
                 getPushCommand(&config)+"; "+
                 "git checkout %s; "+
