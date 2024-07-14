@@ -13,12 +13,14 @@ import (
 type argument_options_t struct {
     depth int
     commit_message string
+    verbose bool
 }
 
 // global state for argument options because they should only be set by the driver
 var argument_options argument_options_t = argument_options_t{
     depth:5, 
     commit_message:"this commit was automatically committed by gitfs",
+    verbose:true,
 }
 
 func main() {
@@ -95,7 +97,7 @@ func processDirectory(dir string) {
                 cur_git_branch,
             ),
         )
-        if err != nil {
+        if argument_options.verbose || err != nil {
             println(string(output))
         }
     } 
