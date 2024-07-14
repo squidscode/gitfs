@@ -121,6 +121,7 @@ func combinedOutputBashInDir(dir string, cmd string) ([]byte, error) {
 
 func getPushCommand(config *map[string]any) string {
     if (*config)["autopush"].(bool) {
+        println("Autopush enabled!")
         return fmt.Sprintf("git push %s %s", (*config)["remote"], (*config)["branch"])
     } else {
         return ":"
@@ -148,7 +149,7 @@ func processGitFsFile(dir string, contents []byte, default_config *map[string]an
 
 func getDefaultGitfsConfig() map[string]any {
     return map[string]any {
-        "autocommit": true, // should gitfs autocommit any changes
+        "autocommit": false, // should gitfs autocommit any changes
         "autopush": false, // should gitfs automatically push if an origin is specified
         "commit-message": argument_options.commit_message, // the commit message
         "remote": "origin", // which remote to push to (ie. `git push ????`)
