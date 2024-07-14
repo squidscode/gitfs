@@ -16,6 +16,7 @@ type argument_options_t struct {
     depth int
     commit_message string
     verbose bool
+    remote string
     branch string
 }
 
@@ -25,6 +26,7 @@ var argument_options argument_options_t = argument_options_t{
     depth:5, 
     commit_message:"this commit was automatically committed by gitfs",
     verbose:false,
+    remote:"origin",
     branch:"wip",
 }
 
@@ -53,6 +55,9 @@ func main() {
         case "-b", "--branch":
             i++
             argument_options.branch = os.Args[i]
+        case "-r", "--remote":
+            i++
+            argument_options.remote = os.Args[i]
         }
     }
     _, err := os.ReadDir(os.Args[1])
@@ -194,7 +199,7 @@ func getDefaultGitfsConfig() map[string]any {
         "autocommit": false, // should gitfs autocommit any changes
         "autopush": false, // should gitfs automatically push if an origin is specified
         "commit-message": argument_options.commit_message, // the commit message
-        "remote": "origin", // which remote to push to (ie. `git push ????`)
+        "remote": argument_options.remote, // which remote to push to (ie. `git push ????`)
         "branch": argument_options.branch, // which branch should be committed to
     }
 }
