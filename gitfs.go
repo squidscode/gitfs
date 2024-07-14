@@ -99,7 +99,6 @@ func processDirectory(dir string) {
             ),
         )
         if argument_options.verbose || err != nil {
-            println("STDERR:")
             println(string(stderr))
         }
     } 
