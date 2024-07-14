@@ -150,6 +150,7 @@ func processDirectory(dir string) {
 func commitGitDiff(dir string, config map[string]any) {
     if len(outputBashInDir(dir, "git diff")) == 0 {
         log.Printf("[%s] Nothing to commit!", dir)
+        return
     }
     cur_git_branch := strings.TrimSpace(string(outputBashInDir(dir, "git branch --show-current")))
     log.Printf("[%s] Pushing to branch %s\n", dir, config["branch"])
