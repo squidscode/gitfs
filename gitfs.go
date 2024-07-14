@@ -28,6 +28,9 @@ var argument_options argument_options_t = argument_options_t{
     branch:"wip",
 }
 
+/*
+ * The driver function for gitfs
+ */
 func main() {
     if len(os.Args) <= 1 {
         fmt.Fprintln(os.Stderr, "Invalid # of arguments");
@@ -104,11 +107,12 @@ func processDirectory(dir string) {
             string(outputBashInDir(dir, "git branch --show-current")),
         )
         fmt.Printf("Pushing to branch %s\n", config["branch"])
-        runBashInDir(
+        _, _, err := runBashInDir(
             dir, 
             fmt.Sprintf("git stash push; git branch -D %s", config["branch"]),
         )
-        _, stderr, err := runBashInDir(
+        check(err)
+        stdout, stderr, err := runBashInDir(
             dir, 
             fmt.Sprintf(
                 "set -e;                   "+ // IMPORTANT: exit on first error!
@@ -121,10 +125,14 @@ func processDirectory(dir string) {
                 config["commit-message"],
             ),
         )
-        runBashInDir(
+        _, _, err = runBashInDir(
             dir,
             fmt.Sprintf("git checkout %s; git stash pop", cur_git_branch),
         )
+        check(err)
+        if argument_options.verbose {
+            println(string(stdout))
+        }
         if argument_options.verbose || err != nil {
             println(string(stderr))
         }
