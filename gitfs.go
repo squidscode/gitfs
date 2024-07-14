@@ -150,6 +150,7 @@ func processDirectory(dir string) {
 func commitGitDiff(dir string, config map[string]any) {
     if len(outputBashInDir(dir, "git diff")) == 0 {
         log.Printf("[%s] Nothing to commit!", dir)
+        return
     }
     cur_git_branch := strings.TrimSpace(string(outputBashInDir(dir, "git branch --show-current")))
     log.Printf("[%s] Pushing to branch %s\n", dir, config["branch"])
@@ -174,7 +175,7 @@ func commitGitDiff(dir string, config map[string]any) {
         log.Printf("[%s] STDOUT:\n%s\n", dir, string(stdout))
     }
     if argument_options.verbose || err != nil {
-        log.Fatalf("[%s] STDERR:\n%s\n", dir, string(stderr))
+        log.Printf("[%s] STDERR:\n%s\n", dir, string(stderr))
     }
 }
 
@@ -223,7 +224,7 @@ func processGitFsFile(dir string, contents []byte, default_config *map[string]an
     for k := range json_data {
         if _, exists := (*default_config)[k]; !exists {
             // log the error
-            log.Fatalf("[%s] key \"%s\" is not a valid `gitfs` configuration!", dir, k)
+            log.Printf("[%s] key \"%s\" is not a valid `gitfs` configuration!", dir, k)
         }
     }
 }
