@@ -125,15 +125,13 @@ func runBashInDir(dir string, cmd string) ([]byte, []byte, error) {
     )
     stdout_reader, err := ex.StdoutPipe(); check(err)
     stderr_reader, err := ex.StderrPipe(); check(err)
-    if err := ex.Run(); err != nil {
-        return []byte(""), []byte(""), err
-    }
+    exit_error := ex.Run()    
     stdout_buf := []byte{}
     stderr_buf := []byte{}
     outn, err := stdout_reader.Read(stdout_buf); check(err)
     errn, err := stderr_reader.Read(stderr_buf); check(err)
     println(outn, errn)
-    return stdout_buf, stderr_buf, nil
+    return stdout_buf, stderr_buf, exit_error
 }
 
 func getPushCommand(config *map[string]any) string {
