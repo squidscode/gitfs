@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "os"
+    "strconv"
     "os/exec"
     "path/filepath"
     "slices"
@@ -11,6 +12,7 @@ import (
 )
 
 type argument_options_t struct {
+    root_dir string
     depth int
     commit_message string
     verbose bool
@@ -18,18 +20,33 @@ type argument_options_t struct {
 
 // global state for argument options because they should only be set by the driver
 var argument_options argument_options_t = argument_options_t{
+    root_dir:".",
     depth:5, 
     commit_message:"this commit was automatically committed by gitfs",
-    verbose:true,
+    verbose:false,
 }
 
 func main() {
-    if len(os.Args) != 2 {
-        fmt.Fprintf(os.Stderr, "Invalid number of arguments")
+    if len(os.Args) <= 1 {
+        fmt.Fprintln(os.Stderr, "Invalid # of arguments");
         printHelp()
-        os.Exit(1)
+        os.Exit(1);
     }
-
+    argument_options.root_dir = os.Args[1]
+    for i := 2; i < len(os.Args); i++ {
+        switch os.Args[i] {
+        case "-d", "--depth":
+            i++
+            depth, err := strconv.Atoi(os.Args[i])
+            check(err)
+            argument_options.depth = depth
+        case "-m", "--message":
+            i++
+            argument_options.commit_message = os.Args[i]
+        case "-v", "--verbose":
+            argument_options.verbose = true
+        }       
+    }
     _, err := os.ReadDir(os.Args[1])
     check(err)
 
@@ -92,7 +109,7 @@ func processDirectory(dir string) {
                 "git commit -m \"%s\";     "+
                 getPushCommand(&config)+"; "+
                 "git checkout %s;          "+
-                "git stash pop",
+                "git stash pop             ",
                 config["branch"],
                 config["commit-message"],
                 cur_git_branch,
