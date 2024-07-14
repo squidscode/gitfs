@@ -81,7 +81,7 @@ func processDirectory(dir string) {
         cur_git_branch := strings.TrimSpace(
             string(outputBashInDir(dir, "git branch --show-current")),
         )
-        _, stderr, err := runBashInDir(
+        stdout, stderr, err := runBashInDir(
             dir, 
             fmt.Sprintf(
                 "set -e;                   "+ // IMPORTANT: exit on first error!
@@ -99,6 +99,9 @@ func processDirectory(dir string) {
             ),
         )
         if argument_options.verbose || err != nil {
+            println("STDOUT:")
+            println(string(stdout))
+            println("STDERR:")
             println(string(stderr))
         }
     } 
