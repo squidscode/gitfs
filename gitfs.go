@@ -125,11 +125,12 @@ func runBashInDir(dir string, cmd string) ([]byte, []byte, error) {
     )
     stdout_reader, err := ex.StdoutPipe(); check(err)
     stderr_reader, err := ex.StderrPipe(); check(err)
-    exit_error := ex.Run()    
+    exit_error := ex.Start()
     stdout_buf := []byte{}
     stderr_buf := []byte{}
     outn, err := stdout_reader.Read(stdout_buf); check(err)
     errn, err := stderr_reader.Read(stderr_buf); check(err)
+    ex.Wait()
     println(outn, errn)
     return stdout_buf, stderr_buf, exit_error
 }
