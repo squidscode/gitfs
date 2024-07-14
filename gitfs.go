@@ -16,6 +16,7 @@ type argument_options_t struct {
     depth int
     commit_message string
     verbose bool
+    branch string
 }
 
 // global state for argument options because they should only be set by the driver
@@ -24,6 +25,7 @@ var argument_options argument_options_t = argument_options_t{
     depth:5, 
     commit_message:"this commit was automatically committed by gitfs",
     verbose:false,
+    branch:"wip",
 }
 
 func main() {
@@ -45,7 +47,10 @@ func main() {
             argument_options.commit_message = os.Args[i]
         case "-v", "--verbose":
             argument_options.verbose = true
-        }       
+        case "-b", "--branch":
+            i++
+            argument_options.branch = os.Args[i]
+        }
     }
     _, err := os.ReadDir(os.Args[1])
     check(err)
@@ -186,7 +191,7 @@ func getDefaultGitfsConfig() map[string]any {
         "autopush": false, // should gitfs automatically push if an origin is specified
         "commit-message": argument_options.commit_message, // the commit message
         "remote": "origin", // which remote to push to (ie. `git push ????`)
-        "branch": "main", // which branch should be committed to
+        "branch": argument_options.branch, // which branch should be committed to
     }
 }
 
@@ -198,7 +203,7 @@ func addGitFsToGitIgnore(dir string) {
         os.WriteFile(gitignore, 
             []byte(".gitfs\n"), 
             0644,
-            )
+        )
     } else if rerr == nil && !strings.Contains(string(contents), ".gitfs\n") { 
         // gitignore does not contain ".gitfs"
         os.WriteFile(gitignore, []byte(".gitfs\n"), os.ModeAppend)
