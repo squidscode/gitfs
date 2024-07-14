@@ -84,13 +84,14 @@ func processDirectory(dir string) {
         output, err := combinedOutputBashInDir(
             dir, 
             fmt.Sprintf(
-                "git stash push; "+
-                "git checkout %s; "+
-                "git stash apply; "+
-                "git add .; "+
-                "git commit -m \"%s\"; "+
+                "set -e;                   "+ // IMPORTANT: exit on first error!
+                "git stash push;           "+
+                "git checkout %s;          "+
+                "git stash apply;          "+
+                "git add .;                "+
+                "git commit -m \"%s\";     "+
                 getPushCommand(&config)+"; "+
-                "git checkout %s; "+
+                "git checkout %s;          "+
                 "git stash pop",
                 config["branch"],
                 config["commit-message"],
