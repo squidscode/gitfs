@@ -1,10 +1,10 @@
-# GitFs
+# GitFS
 
-Gitfs is a utility that allows automatic commits and automatic pushes of git repositories reachable from a root directory. This utility is useful for programmers that want to show their online git repositories to mirror their current working directory. 
+GitFS is a utility that allows automatic commits and automatic pushes of git repositories reachable from a root directory. This utility is useful for programmers that want to show their online git repositories to mirror their current working directory. 
 
 When working with a team, sharing code via gitfs is easy: run `gitfs . --auto-commit --auto-push --branch my-wip`, then send your team-mates a link to your work-in-progress branch.
 
-Gitfs can also track multiple projects since it walks the root directory searching for git repositories and `.gitfs` files, which holds repo-specific auto-commit and auto-push information.
+GitFS can also track multiple projects since it walks the root directory searching for git repositories and `.gitfs` files, which holds repo-specific auto-commit and auto-push information.
 
 ## .gitfs files
 
