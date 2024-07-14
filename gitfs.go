@@ -98,20 +98,29 @@ func processDirectory(dir string) {
         cur_git_branch := strings.TrimSpace(
             string(outputBashInDir(dir, "git branch --show-current")),
         )
+        fmt.Printf("Pushing to branch %s\n", config["branch"])
+        runBashInDir(
+            dir, 
+            fmt.Sprintf("git stash push; git branch -d %s", config["branch"]),
+        )
         _, stderr, err := runBashInDir(
             dir, 
             fmt.Sprintf(
                 "set -e;                   "+ // IMPORTANT: exit on first error!
-                "git stash push;           "+
-                "git checkout %s;          "+
+                "git checkout -b %s;       "+
                 "git stash apply;          "+
                 "git add .;                "+
                 "git commit -m \"%s\";     "+
-                getPushCommand(&config)+"; "+
-                "git checkout %s;          "+
-                "git stash pop             ",
+                getPushCommand(&config)+"; ",
                 config["branch"],
                 config["commit-message"],
+            ),
+        )
+        runBashInDir(
+            dir,
+            fmt.Sprintf(
+                "git checkout %s; "+
+                "git stash pop    ",
                 cur_git_branch,
             ),
         )
