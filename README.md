@@ -12,11 +12,11 @@ Gitfs can also track multiple projects since it walks the root directory searchi
 
 ```json
 {
-  "autocommit": false,     // should gitfs autocommit any changes
-  "autopush": false,       // should gitfs automatically push if an origin is specified
-  "commit-message": "...", // the commit message
-  "remote": "origin",      // which remote to push to (ie. `git push ????`)
-  "branch": "wip"          // which branch should be committed to
+  "autocommit": false,
+  "autopush": false,
+  "commit-message": "...",
+  "remote": "origin",
+  "branch": "wip"
 }
 ```
 
