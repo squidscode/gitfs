@@ -81,7 +81,7 @@ func processDirectory(dir string) {
         cur_git_branch := strings.TrimSpace(
             string(outputBashInDir(dir, "git branch --show-current")),
         )
-        output, err := combinedOutputBashInDir(
+        _, stderr, err := runBashInDir(
             dir, 
             fmt.Sprintf(
                 "set -e;                   "+ // IMPORTANT: exit on first error!
@@ -99,7 +99,7 @@ func processDirectory(dir string) {
             ),
         )
         if argument_options.verbose || err != nil {
-            println(string(output))
+            println(string(stderr))
         }
     } 
 }
@@ -114,12 +114,22 @@ func outputBashInDir(dir string, cmd string) []byte {
     return out
 }
 
-func combinedOutputBashInDir(dir string, cmd string) ([]byte, error) {
-    return exec.Command(
+func runBashInDir(dir string, cmd string) ([]byte, []byte, error) {
+    ex := exec.Command(
         "bash",
         "-c",
         fmt.Sprintf("cd %s; %s", dir, cmd),
-    ).CombinedOutput()
+    )
+    stdout_reader, err := ex.StdoutPipe(); check(err)
+    stderr_reader, err := ex.StderrPipe(); check(err)
+    if err := ex.Run(); err != nil {
+        return []byte(""), []byte(""), err
+    }
+    stdout_buf := []byte{}
+    stderr_buf := []byte{}
+    _, err = stdout_reader.Read(stdout_buf); check(err)
+    _, err = stderr_reader.Read(stderr_buf); check(err)
+    return stdout_buf, stderr_buf, nil
 }
 
 func getPushCommand(config *map[string]any) string {
