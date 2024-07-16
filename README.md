@@ -1,8 +1,8 @@
 # GitFS
 
-GitFS is a utility that allows automatic commits and automatic pushes of git repositories reachable from a root directory. This utility is useful for programmers that want to show their online git repositories to mirror their current working directory. 
+GitFS is a utility that allows automatic commits and automatic pushes of git repositories reachable from a root directory. This utility is useful for programmers that want their online git repositories to mirror their current working directory. This is particularly useful if you add this script to your cron jobs. 
 
-When working with a team, sharing code via gitfs is easy: run `gitfs . --auto-commit --auto-push --branch my-wip`, then send your team-mates a link to your work-in-progress branch.
+I will be adding GitFS to my cron jobs to automatically commit and push code for repos I want to keep up-to-date (e.g. a repo that holds my scripts / problem sets / notes).
 
 GitFS can also track multiple projects since it walks the root directory searching for git repositories and `.gitfs` files, which holds repo-specific auto-commit and auto-push information.
 
@@ -20,7 +20,7 @@ GitFS can also track multiple projects since it walks the root directory searchi
 }
 ```
 
-All fields are **optional** and will default to the values specified above. You can also override the default fields by adding command line flags to the call to the gitfs binary:
+All fields are **optional** and will **default to the values specified above**. You can also override the default fields by adding command line flags to the call to the gitfs binary:
 
 ```
 Gitfs tracks all projects in a root directories and
