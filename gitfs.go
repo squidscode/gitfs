@@ -24,7 +24,9 @@ type argument_options_t struct {
     autopush bool
 }
 
-// global state for argument options because they should only be set by the driver
+/*
+* Default argument options:
+ */
 var argument_options argument_options_t = argument_options_t{
     root_dir:".",
     depth:5, 
@@ -92,10 +94,17 @@ func parseCommandLineArguments() {
     }
 }
 
+/*
+ * Since the bottleneck for this program is inherently parallel (e.g. 
+ * `git commit`, `git push`, `git diff`), we use goroutines to concurrently
+ * perform these tasks.
+ */
 func scanDir(dir string, max_depth int, wg *sync.WaitGroup) {
+    // Base case
     if max_depth == 0 {
         return
     }
+
     c, err := os.ReadDir(dir)
     check(err)
 
@@ -106,14 +115,14 @@ func scanDir(dir string, max_depth int, wg *sync.WaitGroup) {
         }
     }
 
-    if slices.Contains(subdirs, ".git") {
+    if slices.Contains(subdirs, ".git") {  // `dir` is a git repository
         log.Printf("Found git directory at %s\n", dir)
         wg.Add(1)
         go func() {
             defer recoverFromProcessDirectory(dir, wg)
             processDirectory(dir)
         }()
-    } else {
+    } else {                               // `dir` is NOT a git repo
         for _, s := range subdirs {
             scanDir(filepath.Join(dir, s), max_depth - 1, wg)
         }
@@ -121,12 +130,15 @@ func scanDir(dir string, max_depth int, wg *sync.WaitGroup) {
 }
 
 func recoverFromProcessDirectory(dir string, wg *sync.WaitGroup) {
-    wg.Done()
     if r := recover(); r != nil {
         log.Printf("[%s] Recovered from a panic: %s\n", dir, r)
     }
+    wg.Done()
 }
 
+/*
+ * Commit or push depending on the `.gitfs` file options (if provided).
+ */
 func processDirectory(dir string) {
     config := getDefaultGitfsConfig()
     gitfs := filepath.Join(dir, ".gitfs")
@@ -147,13 +159,46 @@ func processDirectory(dir string) {
     }
 }
 
+/*
+ * The logic separating committing to the current branch and committing to another branch
+ * is largely similar (hence the code duplication between commitToCurrentBranch and 
+ * commitToNewBranch). The similarities to not warant new abstractions because the functions
+ * are already concise.
+ */
 func commitGitDiff(dir string, config map[string]any) {
     if len(outputBashInDir(dir, "git diff")) == 0 {
         log.Printf("[%s] Nothing to commit!", dir)
         return
     }
     cur_git_branch := strings.TrimSpace(string(outputBashInDir(dir, "git branch --show-current")))
-    log.Printf("[%s] Pushing to branch %s\n", dir, config["branch"])
+    log.Printf("[%s] Committing to branch %s\n", dir, config["branch"])
+    if cur_git_branch == config["branch"] {
+        commitToCurrentBranch(dir, config)
+    } else {
+        commitToNewBranch(dir, config, cur_git_branch)
+    }
+}
+
+func commitToCurrentBranch(dir string, config map[string]any) {
+    stdout, stderr, err := runBashInDir(
+        dir, 
+        fmt.Sprintf(
+            "set -e;                        "+ // IMPORTANT: exit on first error!
+            "git add .;                     "+
+            "git commit -m \"%s\";          "+
+            getPushCommand(dir, &config)+"; ",
+            config["commit-message"],
+            ),
+        )
+    if argument_options.verbose {
+        log.Printf("[%s] STDOUT:\n%s\n", dir, string(stdout))
+    }
+    if argument_options.verbose || err != nil {
+        log.Printf("[%s] STDERR:\n%s\n", dir, string(stderr))
+    }
+}
+
+func commitToNewBranch(dir string, config map[string]any, cur_git_branch string) {
     _, _, err := runBashInDir(dir, fmt.Sprintf("git stash push; git branch -D %s", config["branch"]))
     check(err)
     stdout, stderr, err := runBashInDir(
@@ -239,6 +284,12 @@ func getDefaultGitfsConfig() map[string]any {
     }
 }
 
+/*
+ * `.gitfs` is a personal git automation tool. Committing it to a public repository 
+ * is bad form. This is especially bad if multiple users are running cron jobs for gitfs 
+ * and they copy each others `.gitfs` config (in other words, they override each others' 
+ * WIP branches).
+ */
 func addGitFsToGitIgnore(dir string) {
     gitignore := filepath.Join(dir, ".gitignore")
     _, err := os.Stat(gitignore)
