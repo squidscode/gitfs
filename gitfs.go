@@ -321,7 +321,18 @@ func printHelp() {
         "    DEPTH - the depth of the walk (default: 5)\n"+
         "    MESSAGE - the commit message\n"+
         "    BRANCH - the branch to commit to (default: wip)\n"+
-        "    REMOTE - the remote git repo to push to (default: origin)\n",
+        "    REMOTE - the remote git repo to push to (default: origin)\n"+
+        "\n"+
+        "Any repo-specific arguments must be placed inside a \".gitfs\"\n"+
+        "json config file using the following template:\n"+
+        "\n"+
+        "{\n"+
+        "    \"autocommit\": false,\n"+
+        "    \"autopush\": false,\n"+
+        "    \"commit-message\": \"...\",\n"+
+        "    \"remote\": \"origin\",\n"+
+        "    \"branch\": \"wip\"\n"+
+        "}\n",
     )
 }
 
